@@ -1,0 +1,169 @@
+#Chunk 1------------------------------------------------------------------------------------------------------
+
+import pandas as pd
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+from urllib.request import urlopen
+from bs4 import BeautifulSoup
+import requests
+%matplotlib inline
+import csv
+import os
+
+
+
+
+#Chunk 2-----------------------------------------------------------------------------------------------------
+
+#Enter the user profile below
+
+Userlink = 'https://www.airbnb.com/users/show/99824610'
+
+#Enter Number of listings
+
+listings = 200
+
+
+
+#Chunk 3-----------------------------------------------------------------------------------------------------
+
+
+def get_page(url):
+    response = requests.get(url)
+    
+    if not response.ok:
+        print('Server responded:', response.status_code)
+    else:
+        soup = BeautifulSoup(response.text, 'lxml')
+    return soup
+
+
+
+
+def get_detail_data(soup, l):
+    
+    try:
+        h1 = soup.find(id,'_pog3hg')
+        h2 = soup.find(id,'_1b3ij9t')
+        
+        reviews=h1.text
+        reviews=reviews.split(' ', 1)[0]
+        
+        name=h2.text
+        name=name.rsplit(None, 1)[-1]
+        
+        data = {
+         'Name': name,
+         'Reviews': reviews
+        }
+        
+        return data
+    
+    except:
+        1       
+        
+        
+      
+    
+        
+def get_index_data(soup):
+    try:
+        links = soup.find_all('a','_gjfol0')
+    except:
+        links = []
+    urls = [item.get('href') for item in links]
+    return urls
+
+
+
+
+
+def write_csv(data, url):
+    with open('output.csv','a') as csvfile:
+        writer = csv.writer(csvfile)
+        row = [data['Name'],data['Reviews'],'https://www.airbnb.com.au/'+url]
+        writer.writerow(row)
+        
+        
+        
+
+
+rows_list=[]
+def main():
+    
+    for pg in range(0,listings,20):
+        url = 'https://www.airbnb.com.au/s/Melbourne--Australia/homes?&place_id=ChIJgf0RD69C1moR4OeMIXVWBAU&items_offset='+str(pg)
+        products = get_index_data(get_page(url))
+        for link in products:
+            data = get_detail_data(get_page('https://www.airbnb.com.au/'+link),'https://www.airbnb.com.au/'+link)
+            if not data == None:
+                rows_list.append(data)
+                #write_csv(data, link)
+            else:
+                1
+    
+    df = pd.DataFrame(rows_list)
+    df = df.drop_duplicates(keep='last')
+    return df
+
+df = main()
+
+
+
+
+#Chunk 4-----------------------------------------------------------------------------------------------------
+
+
+rows_list=[]
+def input(soup, l):   
+    try:
+        h1 = soup.find(id,'_1ekkhy94')
+        h2 = soup.find('h2',id = 'review-section-title')
+        
+        reviews=h2.text
+        reviews=reviews.split(' ', 1)[0]
+        
+        name=h1.text
+        name=name.rsplit(None, 1)[-1]
+        
+        data = {
+         'Name': name,
+         'Reviews': reviews
+        }
+        rows_list.append(data)
+    
+    except:
+        1
+    
+    i = pd.DataFrame(rows_list)
+    i = i.drop_duplicates(keep='last')
+    return i
+
+
+
+
+
+i=input(get_page(Userlink), Userlink)
+mt = pd.concat([df, i], ignore_index=True)
+mt = mt[mt.Reviews.apply(lambda x: x.isnumeric())]
+mt['Reviews'] = pd.to_numeric(mt['Reviews'])
+mt= mt.sort_values('Reviews',ascending=True)
+mt['Percentile_rank']=100 - mt['Reviews'].rank(pct=True)*100
+i_Name = i['Name'].to_string(index=False).replace(' ','')
+i = mt.loc[mt['Name'] == i_Name]
+i_rank = (i['Percentile_rank']).to_string(index=False).replace(' ','')
+
+
+
+
+
+
+print(' ')
+print('-------------User',i_Name,'is in the top',i_rank,'%','of Melbourne Airbnb users based on number of reviews-------------')
+print('\n\n\n')
+print('Details of All Melbourne Users who provide services in the first 10 pages - ','Total: ',mt.shape[0],'users')
+print('\n')
+print(mt)
+
+#----------------------------------------------------END------------------------------------------------------
